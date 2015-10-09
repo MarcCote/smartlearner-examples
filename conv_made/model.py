@@ -1,21 +1,24 @@
 from __future__ import division
 
+import os
+import numpy as np
+from os.path import join as pjoin
+
 import theano.tensor as T
 from theano.tensor.nnet import conv
 import smartlearner.initializers as initer
 
-import numpy as np
-
 from smartlearner.interfaces import Model
 from smartlearner.utils import sharedX
+from smartlearner.utils import save_dict_to_json_file, load_dict_from_json_file
 
 
 class ConvMADE(Model):
     def __init__(self, image_shape, filter_shape, nb_filters=10):
         self.image_shape = image_shape
         self.filter_shape = filter_shape
-
         self.activation_fct = T.nnet.sigmoid
+        self.nb_filters = nb_filters
 
         # Allocating memory for parameters
         nb_input_feature_maps = 1
@@ -82,8 +85,28 @@ class ConvMADE(Model):
         return probs
 
     def save(self, path):
-        pass
+        if not os.path.isdir(path):
+            os.makedirs(path)
+
+        hyperparameters = {'image_shape': self.image_shape,
+                           'filter_shape': self.filter_shape,
+                           'nb_filters': self.nb_filters}
+        save_dict_to_json_file(pjoin(path, "meta.json"), {"name": self.__class__.__name__})
+        save_dict_to_json_file(pjoin(path, "hyperparams.json"), hyperparameters)
+
+        params = {param.name: param.get_value() for param in self.parameters}
+        np.savez(pjoin(path, "params.npz"), **params)
 
     @classmethod
     def load(cls, path):
-        pass
+        meta = load_dict_from_json_file(pjoin(path, "meta.json"))
+        assert meta['name'] == cls.__name__
+
+        hyperparams = load_dict_from_json_file(pjoin(path, "hyperparams.json"))
+
+        model = cls(**hyperparams)
+        parameters = np.load(pjoin(path, "params.npz"))
+        for param in model.parameters:
+            param.set_value(parameters[param.name])
+
+        return model

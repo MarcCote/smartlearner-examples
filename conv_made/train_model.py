@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import numpy as np
@@ -16,8 +17,31 @@ from smartlearner.direction_modifiers import ConstantLearningRate
 from smartlearner.batch_schedulers import FullBatchScheduler, MiniBatchScheduler
 from smartlearner.losses.distribution_losses import BinaryCrossEntropy as NLL
 
+import argparse
 
-def train_model():
+
+def buildArgsParser():
+    DESCRIPTION = "Script to train a Convolutional MADE."
+    p = argparse.ArgumentParser(description=DESCRIPTION)
+    p.add_argument('--lr', type=float, default=0.1,
+                   help="learning to use with AdaGrad. Default: 0.1")
+    p.add_argument('--nb-filters', type=int, default=50,
+                   help="number of filters to use. Default: 50")
+    p.add_argument('--filter-shape', type=int, nargs=2, default=[3, 3],
+                   metavar="HEIGHT,WIDTH", help=". Default: 3 3")
+    p.add_argument('--seed', type=int, default=1234,
+                   help="seed of the random generator used for shuffling the masks")
+    p.add_argument('--name', type=str, default="./experiments/my_exp",
+                   help="experiment's name. Default: exp")
+
+    return p
+
+
+def main():
+    parser = buildArgsParser()
+    args = parser.parse_args()
+    print(args)
+
     with Timer("Loading dataset"):
         trainset, validset, testset = load_binarized_mnist()
         # The target for distribution estimator is the input
@@ -29,18 +53,16 @@ def train_model():
         testset.symb_targets = testset.symb_inputs
 
     with Timer("Creating model"):
-        #hidden_size = 50
         image_shape = (28, 28)
-        filter_shape = (2, 2)
-        nb_filters = 1
-        model = ConvMADE(image_shape, filter_shape, nb_filters)
+        filter_shape = tuple(args.filter_shape)
+        model = ConvMADE(image_shape, filter_shape, nb_filters=args.nb_filters)
         model.initialize()  # By default, uniform initialization.
 
     with Timer("Building optimizer"):
         loss = NLL(model, trainset)
         #optimizer = SGD(loss=loss)
         #optimizer.append_direction_modifier(ConstantLearningRate(0.001))
-        optimizer = AdaGrad(loss=loss, lr=0.1)
+        optimizer = AdaGrad(loss=loss, lr=args.lr)
 
     with Timer("Building trainer"):
         # Train for 10 epochs
@@ -48,7 +70,7 @@ def train_model():
         batch_scheduler = MiniBatchScheduler(trainset, 100)
 
         trainer = Trainer(optimizer, batch_scheduler)
-        trainer.append_task(stopping_criteria.MaxEpochStopping(100))
+        trainer.append_task(stopping_criteria.MaxEpochStopping(200))
 
         # Print time for one epoch
         trainer.append_task(tasks.PrintEpochDuration())
@@ -84,6 +106,8 @@ def train_model():
     with Timer("Training"):
         trainer.train()
 
+    model.save(args.name)
+
 
 if __name__ == "__main__":
-    train_model()
+    main()
