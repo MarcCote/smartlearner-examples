@@ -4,6 +4,7 @@ import numpy as np
 from time import time
 
 import theano
+import itertools
 
 from smartlearner.interfaces import Dataset
 
@@ -66,3 +67,53 @@ def load_binarized_mnist():
     testset = Dataset(data['testset_inputs'].astype(theano.config.floatX), name="testset")
 
     return trainset, validset, testset
+
+
+def gen_cartesian(sequences):
+    """
+    Creates a generator of cartesian products form by input arrays.
+
+    Parameters
+    ----------
+    sequences : list of array-like
+        1-D arrays to form the cartesian product of.
+
+    Returns
+    -------
+    out : generator
+        generator producing 1D array of shape (1, len(arrays)) containing cartesian products
+        formed of input arrays.
+
+    Examples
+    --------
+    >>> list(cartesian(([1, 2, 3], [4, 5], [6, 7])))
+    [array([1, 4, 6]),
+     array([1, 4, 7]),
+     array([1, 5, 6]),
+     array([1, 5, 7]),
+     array([2, 4, 6]),
+     array([2, 4, 7]),
+     array([2, 5, 6]),
+     array([2, 5, 7]),
+     array([3, 4, 6]),
+     array([3, 4, 7]),
+     array([3, 5, 6]),
+     array([3, 5, 7])]
+
+    """
+
+    return itertools.product(*sequences)
+
+
+def chunks(sequence, n):
+    """ Yield successive n-sized chunks from sequence.
+    """
+    for i in xrange(0, len(sequence), n):
+        yield sequence[i:i+n]
+
+
+def ichunks(iterable, n):
+    """ Yield successive n-sized chunks from sequence.
+    """
+    while True:
+        yield list(itertools.islice(iterable, n))
